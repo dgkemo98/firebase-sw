@@ -55,8 +55,8 @@
               fetch("https://fcm.googleapis.com/fcm/send", {
                 method: "POST",
                 headers: {
-                  "Authorization": "key=YOUR_SERVER_KEY", // <-- حط هنا Server key من Firebase
-                  "Content-Type": "application/json"
+                  "Authorization": "key=BOT23GIP27I7OV_g-iT_tcQlq6kpdz-Ew6UpaZvEiVIXBjbvre6Ma2xURI10Qs5GfF3RVQ7X1ZZfZWMs6kqrX0w",
+    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
                   to: token,
