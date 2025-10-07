@@ -1,96 +1,83 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🎧 إشعارات DGKemo</title>
-</head>
-<body style="background:#000;color:#ffd700;font-family:Tahoma;text-align:center;padding:40px;">
+  <script type="module">
+    // تهيئة Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-messaging.js";
 
-  <h1>🎧 إشعارات DGKemo</h1>
-  <p>اضغط على الزر لتفعيل الإشعارات وتنبيهك عند نزول أغنية جديدة 🔔</p>
-
-  <button id="enableBtn" style="padding:10px 20px;background:#ffd700;border:none;color:#000;font-size:18px;border-radius:10px;cursor:pointer;">
-    تفعيل الإشعارات
-  </button>
-
-  <div id="status" style="margin-top:20px;line-height:1.4;"></div>
-
-  <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-messaging-compat.js"></script>
-
-  <script>
     const firebaseConfig = {
-      apiKey: "AIzaSyBOyIGeCHOPAnBFYZ8wZZ2PYrfZXU9nIDU",
-      authDomain: "dgkemo-52c93.firebaseapp.com",
-      databaseURL: "https://dgkemo-52c93-default-rtdb.firebaseio.com",
-      projectId: "dgkemo-52c93",
-      storageBucket: "dgkemo-52c93.firebasestorage.app",
-      messagingSenderId: "542241001900",
-      appId: "1:542241001900:web:ab2de6b9a43a4322336a09",
-      measurementId: "G-96BMQDSMXK"
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID",
     };
-    firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging();
 
-    const SW_URL = './firebase-messaging-sw.js';
-    const statusEl = document.getElementById('status');
-    const btn = document.getElementById('enableBtn');
+    const app = initializeApp(firebaseConfig);
+    const messaging = getMessaging(app);
+    const VAPID_KEY = "YOUR_PUBLIC_VAPID_KEY"; // ← غيّرها بمفتاحك
 
-    function showStatus(html, isError = false) {
-      statusEl.innerHTML = html;
-      statusEl.style.color = isError ? '#ff7070' : '#ffd700';
-    }
+    const btn = document.getElementById("enableNotifications");
+    const status = document.getElementById("status");
 
-    function escapeHtml(unsafe) {
-      return String(unsafe).replace(/[&<>"'`=\/]/g, s =>
-        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' }[s]));
-    }
-
-    btn.addEventListener('click', async () => {
-      btn.disabled = true;
-      showStatus('⏳ جارٍ التحقق...');
-
+    btn.addEventListener("click", async () => {
       try {
-        if (!('serviceWorker' in navigator)) throw new Error('المتصفح لا يدعم Service Workers.');
-        if (!('Notification' in window)) throw new Error('المتصفح لا يدعم Notifications.');
-
-        const res = await fetch(SW_URL, { method: 'HEAD' });
-        if (!res.ok) throw new Error(`ملف Service Worker غير موجود (${res.status}).`);
-
-        const reg = await navigator.serviceWorker.register(SW_URL);
-        messaging.useServiceWorker?.(reg);
-
         const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          showStatus('⚠️ المستخدم رفض الإذن بالإشعارات.');
-          btn.disabled = false;
+        if (permission !== "granted") {
+          status.textContent = "❌ تم رفض الإذن بالإشعارات.";
           return;
         }
 
-        // ✅ هنا المفتاح الصحيح بدون أي مسافات أو تاب
-        const VAPID_KEY = "BOT23GIP27I7OV_g-iT_tcQlq6kpdz-Ew6UpaZvEiVIXBjbvre6Ma2xURI10Qs5GfF3RVQ7X1ZZfZWMs6kqrX0w";
-
-        const token = await messaging.getToken({ vapidKey: VAPID_KEY });
-        if (!token) throw new Error('لم يتم إنشاء token. تأكد أن الصفحة HTTPS.');
-
-        showStatus(`✅ تم التفعيل بنجاح!<br><textarea style="width:100%;height:80px;">${escapeHtml(token)}</textarea>`);
-        console.log('FCM Token:', token);
-
-      } catch (err) {
-        console.error(err);
-        showStatus('❌ حدث خطأ أثناء التفعيل: ' + escapeHtml(err.message || err), true);
-      } finally {
-        btn.disabled = false;
+        const registration = await navigator.serviceWorker.register("./firebase-messaging-sw.js");
+        const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
+        if (token) {
+          status.textContent = "✅ تم تفعيل الإشعارات بنجاح!";
+          console.log("FCM Token:", token);
+        } else {
+          status.textContent = "⚠️ لم يتم الحصول على التوكن.";
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        status.textContent = "❌ حدث خطأ أثناء التفعيل: " + error.message;
       }
     });
 
-    messaging.onMessage(payload => {
-      console.log("📩 إشعار جديد:", payload);
-      new Notification(payload.notification?.title || "🎵 إشعار جديد", {
-        body: payload.notification?.body || "تم نشر أغنية جديدة!"
-      });
+    onMessage(messaging, (payload) => {
+      console.log("📩 إشعار مستلم:", payload);
+      alert("🎶 إشعار جديد: " + payload.notification.title);
     });
   </script>
+
+  <style>
+    body {
+      background: #000;
+      color: gold;
+      font-family: "Cairo", sans-serif;
+      text-align: center;
+      padding: 50px;
+    }
+    button {
+      background: gold;
+      color: #000;
+      border: none;
+      padding: 15px 30px;
+      font-size: 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover { background: #ffcc00; }
+  </style>
+</head>
+<body>
+  <h1>🎧 إشعارات DGKemo</h1>
+  <p>اضغط على الزر لتفعيل الإشعارات وتنبيهك عند نزول أغنية جديدة 🔔</p>
+  <button id="enableNotifications">تفعيل الإشعارات</button>
+  <p id="status"></p>
 </body>
 </html>
