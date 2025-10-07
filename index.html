@@ -16,12 +16,10 @@
 
   <p id="status" style="margin-top:20px;"></p>
 
-  <!-- مكتبات Firebase -->
   <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-messaging-compat.js"></script>
 
   <script>
-    // إعداد Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyBOyIGeCHOPAnBFYZ8wZZ2PYrfZXU9nIDU",
       authDomain: "dgkemo-52c93.firebaseapp.com",
@@ -33,18 +31,14 @@
       measurementId: "G-96BMQDSMXK"
     };
     firebase.initializeApp(firebaseConfig);
-
     const messaging = firebase.messaging();
 
-    // عند الضغط على زر التفعيل
     document.getElementById('enableBtn').addEventListener('click', async () => {
       try {
-        // تسجيل Service Worker
-        const reg = await navigator.serviceWorker.register('https://dgkemo98.github.io/firebase-sw/firebase-messaging-sw.js');
+        const reg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
         messaging.useServiceWorker(reg);
 
         const permission = await Notification.requestPermission();
-
         if (permission === 'granted') {
           const token = await messaging.getToken();
           document.getElementById('status').innerHTML = "✅ تم تفعيل الإشعارات بنجاح<br>التوكن:<br><small>" + token + "</small>";
@@ -52,14 +46,12 @@
         } else {
           document.getElementById('status').textContent = "❌ تم رفض الإذن بالإشعارات.";
         }
-
       } catch (error) {
         console.error("❌ خطأ:", error);
         document.getElementById('status').textContent = "حدث خطأ أثناء التفعيل.";
       }
     });
 
-    // استقبال الإشعارات أثناء فتح الصفحة
     messaging.onMessage((payload) => {
       console.log("📩 إشعار جديد:", payload);
       alert("🔔 " + payload.notification.title + "\n" + payload.notification.body);
