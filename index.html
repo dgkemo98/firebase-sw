@@ -1,30 +1,31 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>🎧 إشعارات DGKemo</title>
 </head>
-<body style="background:#000; color:#ffd700; font-family:Tahoma; text-align:center; padding:40px;">
+<body style="background:#000;color:#ffd700;font-family:Tahoma;text-align:center;padding:40px;">
 
   <h1>🎧 إشعارات DGKemo</h1>
   <p>اضغط على الزر لتفعيل الإشعارات وتنبيهك عند نزول أغنية جديدة 🔔</p>
 
-  <button id="enableBtn" style="padding:10px 20px; background:#ffd700; border:none; color:#000; font-size:18px; border-radius:10px; cursor:pointer;">
+  <button id="enableBtn" style="padding:10px 20px;background:#ffd700;border:none;color:#000;font-size:18px;border-radius:10px;cursor:pointer;">
     تفعيل الإشعارات
   </button>
 
-  <p id="status" style="margin-top:20px;"></p>
+  <div id="status" style="margin-top:20px;line-height:1.4;"></div>
 
-  <!-- Firebase Libraries -->
+  <!-- Firebase compat libs -->
   <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-messaging-compat.js"></script>
 
   <script>
-    // إعداد Firebase
+    // === إعداد Firebase - لا تغيّر هنا إلا لو تعرف بتعمل إيه ===
     const firebaseConfig = {
       apiKey: "AIzaSyBOyIGeCHOPAnBFYZ8wZZ2PYrfZXU9nIDU",
       authDomain: "dgkemo-52c93.firebaseapp.com",
+      databaseURL: "https://dgkemo-52c93-default-rtdb.firebaseio.com",
       projectId: "dgkemo-52c93",
       storageBucket: "dgkemo-52c93.firebasestorage.app",
       messagingSenderId: "542241001900",
@@ -32,38 +33,121 @@
       measurementId: "G-96BMQDSMXK"
     };
     firebase.initializeApp(firebaseConfig);
-
     const messaging = firebase.messaging();
 
-    // مفتاح VAPID اللي جبته من Firebase
-    const VAPID_KEY = "BOT23GIP27I7OV_g-iT_tcQlq6kpdz-Ew6UpaZvEiVIXBjbvre6Ma2xURI10Qs5GfF3RVQ7X1ZZfZWMs6kqrX0w";
+    // مكان ملف الخدمة (لو رفعته في نفس المجلد استخدم './firebase-messaging-sw.js')
+    const SW_URL = './firebase-messaging-sw.js'; // لو غيرت اسم أو مكان الملف عدّله هنا
 
-    document.getElementById('enableBtn').addEventListener('click', async () => {
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('enableBtn');
+
+    function showStatus(html, isError=false) {
+      statusEl.innerHTML = html;
+      if(isError) statusEl.style.color = '#ff7070'; else statusEl.style.color = '#ffd700';
+    }
+
+    // دالة مساعدة لعرض رسالة خطأ مفصلة للمطور
+    function reportError(err) {
+      console.error('تفاصيل الخطأ:', err);
+      let msg = typeof err === 'string' ? err : (err && err.message) ? err.message : JSON.stringify(err);
+      showStatus(`❌ حدث خطأ أثناء التفعيل — ${escapeHtml(msg)}<br><small>افتح Console (F12) وانسخ الخطأ بالكامل إن احتجت مساعدة.</small>`, true);
+    }
+
+    // سلامة: تهرب HTML لعرضه آمن
+    function escapeHtml(unsafe) {
+      return String(unsafe).replace(/[&<>"'`=\/]/g, function (s) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s];
+      });
+    }
+
+    btn.addEventListener('click', async function onEnable() {
+      btn.disabled = true;
+      showStatus('⏳ جارٍ التحقق...');
+
       try {
-        // تسجيل Service Worker
-        const reg = await navigator.serviceWorker.register('https://dgkemo98.github.io/firebase-sw/firebase-messaging-sw.js');
-        messaging.useServiceWorker(reg);
+        // 1) هل المتصفح يدعم service worker و notifications؟
+        if (!('serviceWorker' in navigator)) throw new Error('المتصفح لا يدعم Service Workers.');
+        if (!('Notification' in window)) throw new Error('المتصفح لا يدعم Notifications.');
 
-        const permission = await Notification.requestPermission();
-
-        if (permission === 'granted') {
-          // الحصول على التوكن
-          const token = await messaging.getToken({ vapidKey: VAPID_KEY });
-          document.getElementById('status').innerHTML = "✅ تم تفعيل الإشعارات بنجاح<br><small>" + token + "</small>";
-          console.log("🔔 Token:", token);
-        } else {
-          document.getElementById('status').textContent = "❌ تم رفض الإذن بالإشعارات.";
+        // 2) نتحقق من وجود ملف الـ SW (HEAD request) لنعطي رسالة أوضح لو 404
+        try {
+          const res = await fetch(SW_URL, { method: 'HEAD' });
+          if (!res.ok) {
+            throw new Error(`ملف Service Worker غير موجود في المسار "${SW_URL}" (HTTP ${res.status}). تأكد أنه مرفوع وبنفس المسار.`);
+          }
+        } catch (fetchErr) {
+          throw new Error(`تعذر الوصول إلى ملف Service Worker. افتح هذا الرابط في المتصفح للتأكد: ${location.origin}/${SW_URL.replace('./','')} — (تفاصيل: ${fetchErr && fetchErr.message})`);
         }
-      } catch (error) {
-        console.error("❌ خطأ:", error);
-        document.getElementById('status').textContent = "⚠️ حدث خطأ أثناء التفعيل، تحقق من إعدادات المتصفح أو رابط Service Worker.";
+
+        // 3) تسجيل الـ Service Worker
+        let reg;
+        try {
+          reg = await navigator.serviceWorker.register(SW_URL);
+          console.log('Service Worker registered:', reg);
+          showStatus('✅ تم تسجيل Service Worker بنجاح، جاري طلب الإذن...');
+        } catch (regErr) {
+          throw new Error('فشل تسجيل Service Worker: ' + (regErr && regErr.message || regErr));
+        }
+
+        // 4) نستخدمه مع Firebase Messaging (compat)
+        try {
+          if (typeof messaging.useServiceWorker === 'function') {
+            messaging.useServiceWorker(reg);
+          } else {
+            console.warn('ملاحظة: messaging.useServiceWorker غير موجود. قد تكون تستخدم إصدار مختلف من مكتبات Firebase.');
+          }
+        } catch (useErr) {
+          console.warn('مشكلة في استخدام useServiceWorker:', useErr);
+        }
+
+        // 5) طلب إذن المستخدم
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          showStatus('⚠️ المستخدم رفض الإذن بالإشعارات أو لم يوافق عليه.');
+          btn.disabled = false;
+          return;
+        }
+
+        // 6) جلب التوكن — ضع هنا مفتاح VAPID العام الخاص بحسابك
+        const VAPID_KEY = "BOT23GIP27I7OV_g-iT_tcQlq6kpdz-Ew6UpaZvEiVIXBjbvre6Ma2xURI10Qs5GfF3RVQ7X1ZZfZWMs6kqrX0w	"; // <-- استبدل هذا
+        if (!VAPID_KEY || VAPID_KEY === "BOT23GIP27I7OV_g-iT_tcQlq6kpdz-Ew6UpaZvEiVIXBjbvre6Ma2xURI10Qs5GfF3RVQ7X1ZZfZWMs6kqrX0w	") {
+          showStatus('⚠️ لم تضف مفتاح VAPID العام. اذهب إلى Firebase Console → Cloud Messaging → Web Push certificates وانسخ Public VAPID key وضعه في الكود.', true);
+          btn.disabled = false;
+          return;
+        }
+
+        let token;
+        try {
+          token = await messaging.getToken({ vapidKey: VAPID_KEY });
+        } catch (getTokenErr) {
+          throw new Error('فشل في الحصول على token من Firebase: ' + (getTokenErr && getTokenErr.message || getTokenErr));
+        }
+
+        if (!token) {
+          throw new Error('لم يتم إنشاء token. تأكد من أن إعدادات Firebase وVAPID صحيحة وأن الصفحة تعمل عبر HTTPS.');
+        }
+
+        // 7) نجاح — اعرض التوكن وأرشده أين يخزن
+        showStatus('✅ تم تفعيل الإشعارات بنجاح!<br>التوكن:<br><textarea style="width:100%;height:80px;">' + escapeHtml(token) + '</textarea><br><small>احفظ هذا التوكن أو خزّنه في قاعدة بياناتك لإرسال إشعارات تجريبية.</small>');
+        console.log('FCM token:', token);
+
+      } catch (err) {
+        reportError(err);
+      } finally {
+        btn.disabled = false;
       }
     });
 
     // استقبال الإشعارات أثناء فتح الصفحة
-    messaging.onMessage((payload) => {
-      console.log("📩 إشعار جديد:", payload);
-      alert("🔔 " + payload.notification.title + "\n" + payload.notification.body);
+    messaging.onMessage(function(payload) {
+      console.log('Foreground message:', payload);
+      try {
+        const title = payload.notification?.title || 'إشعار جديد';
+        const body = payload.notification?.body || '';
+        new Notification(title, { body });
+      } catch (e) {
+        console.warn('تعذر عرض الإشعار في foreground:', e);
+      }
     });
   </script>
 </body>
