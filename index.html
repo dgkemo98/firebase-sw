@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>تنبيهات DGKemo 🎵</title>
+  <title>🎧 إشعارات DGKemo</title>
 </head>
 <body style="background:#000; color:#ffd700; font-family:Tahoma; text-align:center; padding:40px;">
 
@@ -16,10 +16,12 @@
 
   <p id="status" style="margin-top:20px;"></p>
 
+  <!-- مكتبات Firebase -->
   <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-messaging-compat.js"></script>
 
   <script>
+    // 🔧 إعداد Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyBOyIGeCHOPAnBFYZ8wZZ2PYrfZXU9nIDU",
       authDomain: "dgkemo-52c93.firebaseapp.com",
@@ -30,28 +32,44 @@
       appId: "1:542241001900:web:ab2de6b9a43a4322336a09",
       measurementId: "G-96BMQDSMXK"
     };
+
     firebase.initializeApp(firebaseConfig);
     const messaging = firebase.messaging();
 
+    // 🔔 تفعيل الإشعارات
     document.getElementById('enableBtn').addEventListener('click', async () => {
+      const status = document.getElementById('status');
       try {
+        // تسجيل الـ Service Worker
         const reg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
         messaging.useServiceWorker(reg);
 
+        // طلب الإذن من المستخدم
         const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-          const token = await messaging.getToken();
-          document.getElementById('status').innerHTML = "✅ تم تفعيل الإشعارات بنجاح<br>التوكن:<br><small>" + token + "</small>";
-          console.log("🔔 Token:", token);
-        } else {
-          document.getElementById('status').textContent = "❌ تم رفض الإذن بالإشعارات.";
+        if (permission !== 'granted') {
+          status.textContent = "❌ تم رفض الإذن بالإشعارات.";
+          return;
         }
-      } catch (error) {
-        console.error("❌ خطأ:", error);
-        document.getElementById('status').textContent = "حدث خطأ أثناء التفعيل.";
+
+        // جلب التوكن
+        const token = await messaging.getToken({
+          vapidKey: "ضع_مفتاح_VAPID_هنا"
+        });
+
+        if (token) {
+          console.log("✅ Token:", token);
+          status.innerHTML = "✅ تم تفعيل الإشعارات بنجاح<br><small>" + token + "</small>";
+        } else {
+          status.textContent = "⚠️ لم يتم إنشاء التوكن.";
+        }
+
+      } catch (err) {
+        console.error("❌ خطأ:", err);
+        status.textContent = "حدث خطأ أثناء التفعيل.";
       }
     });
 
+    // استقبال الإشعارات أثناء فتح الصفحة
     messaging.onMessage((payload) => {
       console.log("📩 إشعار جديد:", payload);
       alert("🔔 " + payload.notification.title + "\n" + payload.notification.body);
