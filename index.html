@@ -4,23 +4,27 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🎧 إشعارات DGKemo</title>
+
   <script type="module">
-    // تهيئة Firebase
+    // استيراد مكتبات Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-messaging.js";
 
+    // 🔥 إعداد Firebase بمشروعك
     const firebaseConfig = {
-      apiKey: "YOUR_FIREBASE_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID",
+      apiKey: "AIzaSyBOyIGeCHOPAnBFYZ8wZZ2PYrfZXU9nIDU",
+      authDomain: "dgkemo-52c93.firebaseapp.com",
+      projectId: "dgkemo-52c93",
+      storageBucket: "dgkemo-52c93.firebasestorage.app",
+      messagingSenderId: "542241001900",
+      appId: "1:542241001900:web:ab2de6b9a43a4322336a09",
+      measurementId: "G-96BMQDSMXK"
     };
 
+    // تهيئة التطبيق وبدء خدمة الإشعارات
     const app = initializeApp(firebaseConfig);
     const messaging = getMessaging(app);
-    const VAPID_KEY = "YOUR_PUBLIC_VAPID_KEY"; // ← غيّرها بمفتاحك
+    const VAPID_KEY = "BOT23GIP27I7OV_g-iT_tcQlq6kpdz-Ew6UpaZvEiVIXBjbvre6Ma2xURI10Qs5GfF3RVQ7X1ZZfZWMs6kqrX0w";
 
     const btn = document.getElementById("enableNotifications");
     const status = document.getElementById("status");
@@ -33,23 +37,26 @@
           return;
         }
 
+        // تسجيل الـ Service Worker
         const registration = await navigator.serviceWorker.register("./firebase-messaging-sw.js");
         const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
+
         if (token) {
           status.textContent = "✅ تم تفعيل الإشعارات بنجاح!";
-          console.log("FCM Token:", token);
+          console.log("🎟️ FCM Token:", token);
         } else {
-          status.textContent = "⚠️ لم يتم الحصول على التوكن.";
+          status.textContent = "⚠️ لم يتم الحصول على التوكن. حاول مجددًا.";
         }
       } catch (error) {
-        console.error("Error:", error);
+        console.error("❌ خطأ:", error);
         status.textContent = "❌ حدث خطأ أثناء التفعيل: " + error.message;
       }
     });
 
+    // إشعار فوري عند استقبال رسالة أثناء فتح الصفحة
     onMessage(messaging, (payload) => {
-      console.log("📩 إشعار مستلم:", payload);
-      alert("🎶 إشعار جديد: " + payload.notification.title);
+      console.log("📩 إشعار جديد:", payload);
+      alert("🎵 " + payload.notification.title + "\n" + payload.notification.body);
     });
   </script>
 
@@ -59,21 +66,29 @@
       color: gold;
       font-family: "Cairo", sans-serif;
       text-align: center;
-      padding: 50px;
+      padding: 60px;
     }
+    h1 { font-size: 28px; margin-bottom: 10px; }
+    p { font-size: 18px; }
     button {
       background: gold;
       color: #000;
       border: none;
-      padding: 15px 30px;
-      font-size: 18px;
+      padding: 15px 40px;
+      font-size: 20px;
       border-radius: 10px;
       cursor: pointer;
       transition: 0.3s;
+      margin-top: 20px;
     }
     button:hover { background: #ffcc00; }
+    #status {
+      margin-top: 20px;
+      font-size: 18px;
+    }
   </style>
 </head>
+
 <body>
   <h1>🎧 إشعارات DGKemo</h1>
   <p>اضغط على الزر لتفعيل الإشعارات وتنبيهك عند نزول أغنية جديدة 🔔</p>
